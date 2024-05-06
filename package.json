@@ -1,0 +1,19 @@
+{
+  "name": "react-codemod-defaultprops",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "jscodeshift": "^0.15.2",
+    "@types/jscodeshift": "^0.11.11"
+  },
+  "bin": {
+    "react-codemod-default-props": "./transform.js"
+  }
+}
