@@ -62,13 +62,17 @@ module.exports = function(fileInfo, api) {
       j(path).replaceWith((nodePath) => {
         const { node } = nodePath;
 
+        let restElement;
+
         node.declarations[0].id.properties.forEach((propertyNode, i) => {
-          if (propertyNode.key?.name && propertyNode.key?.name in propsMap) {
+          if (propertyNode.type === 'RestElement') {
+            restElement = propertyNode;;
+          } else if (propertyNode.key?.name && propertyNode.key?.name in propsMap) {
             const value = propsMap[propertyNode.key.name];
             const rightAssignment = getRightAssignment(value);
 
             node.declarations[0].id.properties[i].value = j.assignmentPattern(
-              j.identifier(propertyNode.key.name),
+              j.identifier(propertyNode.value.name),
               rightAssignment,
             );
 
@@ -79,13 +83,15 @@ module.exports = function(fileInfo, api) {
         Object.entries(propsMap).forEach(([propName, propValue]) => {
           const rightAssignment = getRightAssignment(propValue);
 
-          if (rightAssignment) {
-            const leftAssignment = j.memberExpression(j.identifier('props'), j.identifier(propName));
+          if (restElement && rightAssignment) {
+            const restName = restElement.argument.name;
+
+            const leftAssignment = j.memberExpression(j.identifier(restName), j.identifier(propName));
 
             const propAssignment = j.assignmentExpression('??=', leftAssignment, rightAssignment);
             const statement = j.expressionStatement(propAssignment);
 
-            j(path).insertBefore(statement);
+            j(path).insertAfter(statement);
           }
         });
 
