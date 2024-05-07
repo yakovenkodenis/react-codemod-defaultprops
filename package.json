@@ -1,6 +1,6 @@
 {
   "name": "react-codemod-defaultprops",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -9,11 +9,11 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "devDependencies": {
-    "@types/jscodeshift": "^0.11.11"
-  },
   "bin": {
     "react-codemod-default-props": "./bin/codemod-default-props.js"
+  },
+  "overrides": {
+    "recast": "^0.23.6"
   },
   "dependencies": {
     "chalk": "^2.4.2",
@@ -23,5 +23,8 @@
     "is-git-clean": "^1.1.0",
     "jscodeshift": "^0.15.2",
     "meow": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/jscodeshift": "^0.11.11"
   }
 }

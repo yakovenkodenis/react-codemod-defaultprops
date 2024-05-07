@@ -1,10 +1,14 @@
 /**
  * @param {object} fileInfo 
  * @param {import('jscodeshift').API} api 
+ * @param {object} options
  */
-module.exports = function(fileInfo, api) {
+module.exports = function(fileInfo, api, options) 
+{
   const { j } = api;
   const root = j(fileInfo.source);
+
+  const printOptions = options.printOptions ?? { quote: 'single' };
 
   function getRightAssignment(value) {
     if (value.type === 'Literal') {
@@ -24,6 +28,7 @@ module.exports = function(fileInfo, api) {
     } else if (value.type === 'ArrayExpression') {
       return j.arrayExpression(value.elements);
     } else if (value.type === 'Identifier') {
+      if (value.name === 'undefined') return undefined;
       return j.identifier(value.name);
     } else if (value.type === 'CallExpression') {
       return j.callExpression(value.callee, value.arguments);
@@ -98,14 +103,16 @@ module.exports = function(fileInfo, api) {
                   const value = propsMap.get(path)[propertyNode.key.name];
                   const rightAssignment = getRightAssignment(value);
     
-                  node.declarations[0].id.properties[i].value = j.assignmentPattern(
-                    j.identifier(propertyNode.value?.name ?? propertyNode.key?.name),
-                    rightAssignment,
-                  );
-    
-                  const oldProps = propsMap.get(path);
-                  delete oldProps[propertyNode.key.name];
-                  propsMap.set(path, oldProps);
+                  if (rightAssignment) {
+                    node.declarations[0].id.properties[i].value = j.assignmentPattern(
+                      j.identifier(propertyNode.value?.name ?? propertyNode.key?.name),
+                      rightAssignment,
+                    );
+      
+                    const oldProps = propsMap.get(path);
+                    delete oldProps[propertyNode.key.name];
+                    propsMap.set(path, oldProps);
+                  }
                 }
               });
     
@@ -132,5 +139,5 @@ module.exports = function(fileInfo, api) {
     })
   }
 
-  return root.toSource();
+  return root.toSource(printOptions);
 }
