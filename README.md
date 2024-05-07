@@ -46,9 +46,6 @@ export default memo(IconButton);
 ##### After:
 ```javascript
 function IconButton(props) {
-  props.id ??= "";
-  props.name ??= "";
-
   const {
     className,
     disabled = false,
@@ -59,6 +56,9 @@ function IconButton(props) {
     stopPropagation = false,
     withIcon = true,
   } = props;
+
+  rest.id ??= "";
+  rest.name ??= "";
 
   return <Button>...</Button>;
 }
