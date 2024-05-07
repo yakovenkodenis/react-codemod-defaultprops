@@ -38,65 +38,99 @@ module.exports = function(fileInfo, api) {
     }
   }  
 
-  const propsMap = {};
+  /**
+   * @type {WeakMap<import('jscodeshift').ASTPath, Record<string, any>>}
+   */
+  const propsMap = new WeakMap();
 
-  return root.find(j.AssignmentExpression).filter((path) => {
-    const memberAssignment = path.value.left.type === 'MemberExpression' && path.value.right.type === 'ObjectExpression';
-    const isDefaultProps = path.value.left.property?.loc?.identifierName === 'defaultProps';
-    return memberAssignment && isDefaultProps;
-  }).forEach((path) => {
-      path.value.right.properties.forEach((property) => {
-        if (property.kind === 'init') {
-          const { value, key } = property;
-          if (key?.name) propsMap[key.name] = value;
-        }
-      });
+  const componentNodeTypes = [
+    j.FunctionDeclaration,
+    j.ArrowFunctionExpression,
+  ];
 
-    j(path).remove();
+  for (const componentNodeType of componentNodeTypes) {
+    root.find(componentNodeType).forEach((componentNodeTypePath) => {
+      let componentName = componentNodeTypePath.value?.id?.name ?? componentNodeTypePath?.parent?.value?.id?.name;
 
-    root.find(j.VariableDeclaration, {
-      declarations: [{ init: { name: 'props' }, id: { type: 'ObjectPattern' } }],
-      kind: 'const',
+      const isForwardRef = componentNodeTypePath.parent?.value.type === 'CallExpression' && componentNodeTypePath.parent?.value?.callee?.name === 'forwardRef';
+      if (isForwardRef) {
+        componentName = componentNodeTypePath.parent?.parent?.value?.id?.name;
+      }
+
+      if (!componentName) return;
+
+      const firstLetterUppercase = /^[A-Z]/. test(componentName);
+      if (!firstLetterUppercase) return; // Not a component.
+  
+      root.find(j.AssignmentExpression).filter((path) => {
+        const isCurrentComponent = path.value.left?.object?.name === componentName;
+        const memberAssignment = path.value.left.type === 'MemberExpression' && path.value.right.type === 'ObjectExpression';
+        const isDefaultProps = path.value.left.property?.loc?.identifierName === 'defaultProps' || path.value.left.property?.name === 'defaultProps';
+        return isCurrentComponent && memberAssignment && isDefaultProps;
+      }).forEach((path) => {
+          propsMap.set(path, {});
+          path.value.right.properties.forEach((property) => {
+            if (property.kind === 'init') {
+              const { value, key } = property;
+              if (key?.name) {
+                const prop = { [key.name]: value };
+                propsMap.set(path, { ...propsMap.get(path), ...prop });
+              }
+            }
+          });
+    
+          j(path).remove();
+    
+          j(componentNodeTypePath).find(j.VariableDeclaration, {
+            declarations: [{ init: { name: 'props' }, id: { type: 'ObjectPattern' } }],
+            kind: 'const',
+          })
+          .forEach((propsConstPath) => {
+            j(propsConstPath).replaceWith((nodePath) => {
+              const { node } = nodePath;
+    
+              let restElement;
+    
+              node.declarations[0].id.properties.forEach((propertyNode, i) => {
+                if (propertyNode.type === 'RestElement') {
+                  restElement = propertyNode;
+                } else if (propertyNode.key?.name && propertyNode.key?.name in propsMap.get(path)) {
+                  const value = propsMap.get(path)[propertyNode.key.name];
+                  const rightAssignment = getRightAssignment(value);
+    
+                  node.declarations[0].id.properties[i].value = j.assignmentPattern(
+                    j.identifier(propertyNode.value?.name ?? propertyNode.key?.name),
+                    rightAssignment,
+                  );
+    
+                  const oldProps = propsMap.get(path);
+                  delete oldProps[propertyNode.key.name];
+                  propsMap.set(path, oldProps);
+                }
+              });
+    
+              Object.entries(propsMap.get(path)).forEach(([propName, propValue]) => {
+                const rightAssignment = getRightAssignment(propValue);
+    
+                if (restElement && rightAssignment) {
+                  const restName = restElement.argument.name;
+    
+                  const leftAssignment = j.memberExpression(j.identifier(restName), j.identifier(propName));
+    
+                  const propAssignment = j.assignmentExpression('??=', leftAssignment, rightAssignment);
+                  const statement = j.expressionStatement(propAssignment);
+    
+                  j(propsConstPath).insertAfter(statement);
+                }
+              });
+    
+              return node;
+            });
+          });
+      })
+  
     })
-    .forEach((path) => {
-      j(path).replaceWith((nodePath) => {
-        const { node } = nodePath;
+  }
 
-        let restElement;
-
-        node.declarations[0].id.properties.forEach((propertyNode, i) => {
-          if (propertyNode.type === 'RestElement') {
-            restElement = propertyNode;;
-          } else if (propertyNode.key?.name && propertyNode.key?.name in propsMap) {
-            const value = propsMap[propertyNode.key.name];
-            const rightAssignment = getRightAssignment(value);
-
-            node.declarations[0].id.properties[i].value = j.assignmentPattern(
-              j.identifier(propertyNode.value.name),
-              rightAssignment,
-            );
-
-            delete propsMap[propertyNode.key.name];
-          }
-        });
-
-        Object.entries(propsMap).forEach(([propName, propValue]) => {
-          const rightAssignment = getRightAssignment(propValue);
-
-          if (restElement && rightAssignment) {
-            const restName = restElement.argument.name;
-
-            const leftAssignment = j.memberExpression(j.identifier(restName), j.identifier(propName));
-
-            const propAssignment = j.assignmentExpression('??=', leftAssignment, rightAssignment);
-            const statement = j.expressionStatement(propAssignment);
-
-            j(path).insertAfter(statement);
-          }
-        });
-
-        return node;
-      });
-    });
-  }).toSource();
+  return root.toSource();
 }
