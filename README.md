@@ -1,4 +1,18 @@
-Before:
+### react-codemod-default-props
+
+This is a JSCodeshift React codemod that helps update React defaultProps API to props destructuring with default values to facilitate the upgrade to React 19.
+
+
+### Usage
+
+```sh
+npx react-codemod-default-props
+```
+
+This will start an interactive wizard, and then run the transform.
+
+
+##### Before:
 ```javascript
 function IconButton(props) {
   const {
@@ -29,7 +43,7 @@ IconButton.defaultProps = {
 export default memo(IconButton);
 ```
 
-After:
+##### After:
 ```javascript
 function IconButton(props) {
   props.id ??= "";
@@ -50,10 +64,4 @@ function IconButton(props) {
 }
 
 export default memo(IconButton);
-```
-
-
-# Run
-```sh
-jscodeshift -t transform.js ./target-file.js
 ```
