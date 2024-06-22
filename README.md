@@ -50,18 +50,21 @@ function IconButton(props) {
     className,
     disabled = false,
     icon = <Icon />,
-    label = "",
+    label = '',
     link,
     onLinkClick,
     stopPropagation = false,
     withIcon = true,
   } = props;
 
-  rest.id ??= "";
-  rest.name ??= "";
+  rest.id ??= '';
+  rest.name ??= '';
 
   return <Button>...</Button>;
 }
 
 export default memo(IconButton);
 ```
+
+### Warning
+Beware of the reference type props. E.g., you have an object or a function as a default prop defined in `Component.defaultProps`, refactoring it to props destructuring might cause an infinite loop since the component will receive a new reference to the object on every render.
